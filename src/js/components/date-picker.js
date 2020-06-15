@@ -71,6 +71,8 @@ const CALENDAR_YEAR_PICKER = `.${CALENDAR_YEAR_PICKER_CLASS}`;
 const CALENDAR_MONTH_FOCUSED = `.${CALENDAR_MONTH_FOCUSED_CLASS}`;
 const CALENDAR_YEAR_FOCUSED = `.${CALENDAR_YEAR_FOCUSED_CLASS}`;
 
+const NOT_DISABLED_SELECTOR = ":not([disabled])";
+
 const VALIDATION_MESSAGE = "Please enter a valid date";
 
 const MONTH_LABELS = [
@@ -113,11 +115,11 @@ const DATE_PICKER_FOCUSABLE = [
   CALENDAR_NEXT_MONTH,
   CALENDAR_DATE_FOCUSED
 ]
-  .map(query => query + ":not([disabled])")
+  .map(query => query + NOT_DISABLED_SELECTOR)
   .join(", ");
 
 const MONTH_PICKER_FOCUSABLE = [CALENDAR_MONTH_FOCUSED]
-  .map(query => query + ":not([disabled])")
+  .map(query => query + NOT_DISABLED_SELECTOR)
   .join(", ");
 
 const YEAR_PICKER_FOCUSABLE = [
@@ -125,7 +127,7 @@ const YEAR_PICKER_FOCUSABLE = [
   CALENDAR_NEXT_YEAR_CHUNK,
   CALENDAR_YEAR_FOCUSED
 ]
-  .map(query => query + ":not([disabled])")
+  .map(query => query + NOT_DISABLED_SELECTOR)
   .join(", ");
 
 // #region Date Manipulation Functions
@@ -600,7 +602,7 @@ const changeElementValue = (el, value = "") => {
  * @property {Date} calendarDate
  * @property {Date} minDate
  * @property {Date} maxDate
- * @property {Date} inputDate
+ * @property {Date} selectedDate
  * @property {Date} rangeDate
  * @property {Date} defaultDate
  */
@@ -624,7 +626,7 @@ const getDatePickerContext = el => {
   const statusEl = datePickerEl.querySelector(DATE_PICKER_STATUS);
   const firstYearChunkEl = datePickerEl.querySelector(CALENDAR_YEAR);
 
-  const inputDate = parseDateString(inputEl.value, true);
+  const selectedDate = parseDateString(inputEl.value, true);
   const calendarDate = parseDateString(calendarEl.dataset.value);
   const minDate = parseDateString(datePickerEl.dataset.minDate);
   const maxDate = parseDateString(datePickerEl.dataset.maxDate);
@@ -638,7 +640,7 @@ const getDatePickerContext = el => {
   return {
     calendarDate,
     minDate,
-    inputDate,
+    selectedDate,
     maxDate,
     firstYearChunkEl,
     datePickerEl,
@@ -677,7 +679,7 @@ const enhanceDatePicker = el => {
       `<span class="usa-date-picker__button-wrapper" tabindex="-1">
         <button type="button" class="${DATE_PICKER_BUTTON_CLASS}" aria-label="Display calendar">&nbsp;</button>
       </span>`,
-      `<div tabindex="-1" class="${DATE_PICKER_CALENDAR_CLASS}" aria-label="Calendar" hidden></div>`,
+      `<div class="${DATE_PICKER_CALENDAR_CLASS}" aria-label="Calendar" hidden></div>`,
       `<div class="usa-sr-only ${DATE_PICKER_STATUS_CLASS}" role="status" aria-live="polite"></div>`
     ].join("")
   );
@@ -753,7 +755,7 @@ const renderCalendar = (el, _dateToDisplay) => {
     datePickerEl,
     calendarEl,
     statusEl,
-    inputDate,
+    selectedDate,
     maxDate,
     minDate,
     rangeDate
@@ -775,8 +777,9 @@ const renderCalendar = (el, _dateToDisplay) => {
   const prevButtonsDisabled = isSameMonth(dateToDisplay, minDate);
   const nextButtonsDisabled = isSameMonth(dateToDisplay, maxDate);
 
-  const rangeStartDate = rangeDate && min(dateToDisplay, rangeDate);
-  const rangeEndDate = rangeDate && max(dateToDisplay, rangeDate);
+  const rangeConclusionDate = selectedDate || dateToDisplay;
+  const rangeStartDate = rangeDate && min(rangeConclusionDate, rangeDate);
+  const rangeEndDate = rangeDate && max(rangeConclusionDate, rangeDate);
 
   const withinRangeStartDate = rangeDate && addDays(rangeStartDate, 1);
   const withinRangeEndDate = rangeDate && subDays(rangeEndDate, 1);
@@ -808,7 +811,7 @@ const renderCalendar = (el, _dateToDisplay) => {
       classes.push(CALENDAR_DATE_NEXT_MONTH_CLASS);
     }
 
-    if (isSameDay(dateToRender, inputDate)) {
+    if (isSameDay(dateToRender, selectedDate)) {
       classes.push(CALENDAR_DATE_SELECTED_CLASS);
     }
 
@@ -877,7 +880,7 @@ const renderCalendar = (el, _dateToDisplay) => {
   newCalendar.dataset.value = currentFormattedDate;
   newCalendar.style.top = `${datePickerEl.offsetHeight}px`;
   newCalendar.hidden = false;
-  newCalendar.innerHTML = `<div class="${CALENDAR_DATE_PICKER_CLASS}">
+  newCalendar.innerHTML = `<div tabindex="-1" class="${CALENDAR_DATE_PICKER_CLASS}">
       <div class="${CALENDAR_ROW_CLASS}">
         <div class="${CALENDAR_CELL_CLASS} ${CALENDAR_CELL_CENTER_ITEMS_CLASS}">
           <button 
@@ -963,7 +966,12 @@ const displayPreviousYear = _buttonEl => {
   let date = subYears(calendarDate, 1);
   date = keepDateBetweenMinAndMax(date, minDate, maxDate);
   const newCalendar = renderCalendar(calendarEl, date);
-  newCalendar.querySelector(CALENDAR_PREVIOUS_YEAR).focus();
+
+  let nextToFocus = newCalendar.querySelector(CALENDAR_PREVIOUS_YEAR);
+  if (nextToFocus.disabled) {
+    nextToFocus = newCalendar.querySelector(CALENDAR_DATE_PICKER);
+  }
+  nextToFocus.focus();
 };
 
 /**
@@ -979,7 +987,12 @@ const displayPreviousMonth = _buttonEl => {
   let date = subMonths(calendarDate, 1);
   date = keepDateBetweenMinAndMax(date, minDate, maxDate);
   const newCalendar = renderCalendar(calendarEl, date);
-  newCalendar.querySelector(CALENDAR_PREVIOUS_MONTH).focus();
+
+  let nextToFocus = newCalendar.querySelector(CALENDAR_PREVIOUS_MONTH);
+  if (nextToFocus.disabled) {
+    nextToFocus = newCalendar.querySelector(CALENDAR_DATE_PICKER);
+  }
+  nextToFocus.focus();
 };
 
 /**
@@ -995,7 +1008,12 @@ const displayNextMonth = _buttonEl => {
   let date = addMonths(calendarDate, 1);
   date = keepDateBetweenMinAndMax(date, minDate, maxDate);
   const newCalendar = renderCalendar(calendarEl, date);
-  newCalendar.querySelector(CALENDAR_NEXT_MONTH).focus();
+
+  let nextToFocus = newCalendar.querySelector(CALENDAR_NEXT_MONTH);
+  if (nextToFocus.disabled) {
+    nextToFocus = newCalendar.querySelector(CALENDAR_DATE_PICKER);
+  }
+  nextToFocus.focus();
 };
 
 /**
@@ -1011,7 +1029,12 @@ const displayNextYear = _buttonEl => {
   let date = addYears(calendarDate, 1);
   date = keepDateBetweenMinAndMax(date, minDate, maxDate);
   const newCalendar = renderCalendar(calendarEl, date);
-  newCalendar.querySelector(CALENDAR_NEXT_YEAR).focus();
+
+  let nextToFocus = newCalendar.querySelector(CALENDAR_NEXT_YEAR);
+  if (nextToFocus.disabled) {
+    nextToFocus = newCalendar.querySelector(CALENDAR_DATE_PICKER);
+  }
+  nextToFocus.focus();
 };
 
 /**
@@ -1128,7 +1151,7 @@ const displayMonthSelection = (el, monthToDisplay) => {
       >${month}</button>`;
   });
 
-  const monthsHtml = `<div class="${CALENDAR_MONTH_PICKER_CLASS}">${listToGridHtml(
+  const monthsHtml = `<div tabindex="-1" class="${CALENDAR_MONTH_PICKER_CLASS}">${listToGridHtml(
     months,
     3
   )}</div>`;
@@ -1214,7 +1237,7 @@ const displayYearSelection = (el, yearToDisplay) => {
   const yearsHtml = listToGridHtml(years, 3);
 
   const newCalendar = calendarEl.cloneNode();
-  newCalendar.innerHTML = `<div class="${CALENDAR_YEAR_PICKER_CLASS}">
+  newCalendar.innerHTML = `<div tabindex="-1" class="${CALENDAR_YEAR_PICKER_CLASS}">
       <button 
         type="button" 
         class="${CALENDAR_PREVIOUS_YEAR_CHUNK_CLASS}" 
@@ -1264,7 +1287,11 @@ const displayPreviousYearChunk = el => {
     cappedDate.getFullYear()
   );
 
-  newCalendar.querySelector(CALENDAR_PREVIOUS_YEAR_CHUNK).focus();
+  let nextToFocus = newCalendar.querySelector(CALENDAR_PREVIOUS_YEAR_CHUNK);
+  if (nextToFocus.disabled) {
+    nextToFocus = newCalendar.querySelector(CALENDAR_YEAR_PICKER);
+  }
+  nextToFocus.focus();
 };
 
 /**
@@ -1291,7 +1318,11 @@ const displayNextYearChunk = el => {
     cappedDate.getFullYear()
   );
 
-  newCalendar.querySelector(CALENDAR_NEXT_YEAR_CHUNK).focus();
+  let nextToFocus = newCalendar.querySelector(CALENDAR_NEXT_YEAR_CHUNK);
+  if (nextToFocus.disabled) {
+    nextToFocus = newCalendar.querySelector(CALENDAR_YEAR_PICKER);
+  }
+  nextToFocus.focus();
 };
 
 // #region Calendar Event Handling
@@ -1416,6 +1447,9 @@ const handleMousemoveFromDate = dateEl => {
   if (dateEl.disabled) return;
 
   const calendarEl = dateEl.closest(DATE_PICKER_CALENDAR);
+
+  if (calendarEl.dataset.disableMouseover) return;
+
   const currentCalendarDate = calendarEl.dataset.value;
   const hoverDate = dateEl.dataset.value;
 
@@ -1659,7 +1693,7 @@ const toggleCalendar = el => {
   if (el.disabled) return;
   const {
     calendarEl,
-    inputDate,
+    selectedDate,
     minDate,
     maxDate,
     defaultDate
@@ -1667,7 +1701,7 @@ const toggleCalendar = el => {
 
   if (calendarEl.hidden) {
     const dateToDisplay = keepDateBetweenMinAndMax(
-      inputDate || defaultDate || today(),
+      selectedDate || defaultDate || today(),
       minDate,
       maxDate
     );
@@ -1684,11 +1718,17 @@ const toggleCalendar = el => {
  * @param {HTMLElement} el an element within the date picker
  */
 const updateCalendarIfVisible = el => {
-  const { calendarEl, inputDate, minDate, maxDate } = getDatePickerContext(el);
+  const { calendarEl, selectedDate, minDate, maxDate } = getDatePickerContext(
+    el
+  );
   const calendarShown = !calendarEl.hidden;
 
-  if (calendarShown && inputDate) {
-    const dateToDisplay = keepDateBetweenMinAndMax(inputDate, minDate, maxDate);
+  if (calendarShown && selectedDate) {
+    const dateToDisplay = keepDateBetweenMinAndMax(
+      selectedDate,
+      minDate,
+      maxDate
+    );
     renderCalendar(calendarEl, dateToDisplay);
   }
 };
@@ -1697,29 +1737,44 @@ const tabHandler = focusable => {
   const getFocusableContext = el => {
     const { calendarEl } = getDatePickerContext(el);
     const focusableElements = select(focusable, calendarEl);
-    const firstTabStop = focusableElements[0];
-    const lastTabStop = focusableElements[focusableElements.length - 1];
+
+    const firstTabIndex = 0;
+    const lastTabIndex = focusableElements.length - 1;
+    const firstTabStop = focusableElements[firstTabIndex];
+    const lastTabStop = focusableElements[lastTabIndex];
+    const focusIndex = focusableElements.indexOf(activeElement());
+
+    const isLastTab = focusIndex === lastTabIndex;
+    const isFirstTab = focusIndex === firstTabIndex;
+    const isNotFound = focusIndex === -1;
 
     return {
       focusableElements,
+      isNotFound,
       firstTabStop,
-      lastTabStop
+      isFirstTab,
+      lastTabStop,
+      isLastTab
     };
   };
 
   return {
     tabAhead(event) {
-      const { firstTabStop, lastTabStop } = getFocusableContext(event.target);
+      const { firstTabStop, isLastTab, isNotFound } = getFocusableContext(
+        event.target
+      );
 
-      if (activeElement() === lastTabStop) {
+      if (isLastTab || isNotFound) {
         event.preventDefault();
         firstTabStop.focus();
       }
     },
     tabBack(event) {
-      const { firstTabStop, lastTabStop } = getFocusableContext(event.target);
+      const { isFirstTab, isNotFound, lastTabStop } = getFocusableContext(
+        event.target
+      );
 
-      if (activeElement() === firstTabStop) {
+      if (isFirstTab || isNotFound) {
         event.preventDefault();
         lastTabStop.focus();
       }
@@ -1868,7 +1923,7 @@ const datePicker = behavior(
         validateDateInput(this);
       }
     },
-    "rerender input": {
+    input: {
       [DATE_PICKER_INPUT]() {
         updateCalendarIfVisible(this);
       }
@@ -1891,7 +1946,10 @@ const datePicker = behavior(
         enhanceDatePicker(datePickerEl);
       });
     },
-    isDateInputInvalid
+    getDatePickerContext,
+    isDateInputInvalid,
+    renderCalendar,
+    updateCalendarIfVisible
   }
 );
 
