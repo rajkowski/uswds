@@ -3,6 +3,7 @@ const select = require("../utils/select");
 const behavior = require("../utils/behavior");
 const { prefix: PREFIX } = require("../config");
 const isElementInViewport = require("../utils/is-in-viewport");
+const changeStylesheetRule = require("../utils/change-stylesheet-rule");
 
 const TOOLTIP = `.${PREFIX}-tooltip`
 const TOOLTIP_TRIGGER_CLASS = `${PREFIX}-tooltip__trigger`;
@@ -112,7 +113,7 @@ const showToolTip = (tooltipBody, tooltipTrigger, position, wrapper) => {
   }
 
   /**
-  * Positions tooltip at the right
+  * Positions tooltip at the left
   * @param {HTMLElement} e - this is the tooltip body
   */
   const positionLeft = e => {
@@ -128,46 +129,77 @@ const showToolTip = (tooltipBody, tooltipTrigger, position, wrapper) => {
   }
 
   /**
-  * We try to set the position based on the
-  * original intention, but make adjustments
-  * if the element is clipped out of the viewport
+  * Set the position based on the original intention
   */
   switch(position) {
     case "top":
       positionTop(tooltipBody);
-      if (!isElementInViewport(tooltipBody)) {
-        positionBottom(tooltipBody);
-      }
       break;
     case "bottom":
       positionBottom(tooltipBody);
-      if (!isElementInViewport(tooltipBody)) {
-        positionTop(tooltipBody);
-      }
       break;
     case "right":
       positionRight(tooltipBody);
-      if (!isElementInViewport(tooltipBody)) {
-        positionLeft(tooltipBody);
-        if (!isElementInViewport(tooltipBody)) {
-          positionTop(tooltipBody);
-        }
-      }
       break;
     case "left":
       positionLeft(tooltipBody);
-      if (!isElementInViewport(tooltipBody)) {
-        positionRight(tooltipBody);
-        if (!isElementInViewport(tooltipBody)) {
-          positionTop(tooltipBody);
-        }
-      }
       break;
-
     default:
       // skip default case
       break;
   }
+
+  /**
+   * Make sure the tooltip is onscreen left-to-right
+   */
+  if (position === 'top' || position === 'bottom') {
+    if (!isElementInViewport(tooltipBody)) {
+      var rect = tooltipBody.getBoundingClientRect();
+      if (rect.left < 0) {
+        tooltipBody.style.left = (parseInt(-rect.left) + 10) + 'px';
+      } else if (rect.right > window.innerWidth) {
+        tooltipBody.style.left = (parseInt(window.innerWidth - rect.right - 30)) + 'px';
+      }
+    }
+  }
+
+  /**
+   * Make a final adjustment
+   */
+  if (!isElementInViewport(tooltipBody)) {
+    switch(position) {
+      case "top":
+          positionBottom(tooltipBody);
+        break;
+      case "bottom":
+          positionTop(tooltipBody);
+        break;
+      case "right":
+          positionLeft(tooltipBody);
+          if (!isElementInViewport(tooltipBody)) {
+            positionTop(tooltipBody);
+          }
+        break;
+      case "left":
+          positionRight(tooltipBody);
+          if (!isElementInViewport(tooltipBody)) {
+            positionTop(tooltipBody);
+          }
+        break;
+      default:
+        // skip default case
+        break;
+    }
+  }
+
+  /**
+   * Always make sure the arrow is updated since its position is based on a reusable stylesheet class
+   */
+  var buttonRect = tooltipTrigger.getBoundingClientRect();
+  var tooltipRect = tooltipBody.getBoundingClientRect();
+  var tooltipArrowPosition = parseInt(buttonRect.left - tooltipRect.left + (buttonRect.width / 2));
+  changeStylesheetRule('tooltipPseudoStyleSheet', '.usa-tooltip__body--top::after', 'left', tooltipArrowPosition + 'px');
+  changeStylesheetRule('tooltipPseudoStyleSheet', '.usa-tooltip__body--bottom::after', 'left', tooltipArrowPosition + 'px');
 
   /**
   * Actually show the tooltip. The VISIBLE_CLASS
